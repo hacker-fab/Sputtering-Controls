@@ -32,8 +32,6 @@ void loop() {
     Serial.print("Success of Read: ");
     Serial.println(error);
 
-
-    digitalWrite(RTS_pin, HIGH);
     /*
     // Writing a holding register (Ensure register 999 is writable)
     uint8_t x = modbus.writeSingleHoldingRegister(ALICAT_ADDRESS, 999, 222);
