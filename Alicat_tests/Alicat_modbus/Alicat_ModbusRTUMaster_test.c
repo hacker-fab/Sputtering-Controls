@@ -25,6 +25,9 @@ void loop() {
     Serial.println("Communicating with Alicat...");
 
 
+
+
+
     delay(10); // Small delay to ensure stability
 
     uint16_t holdingRegisters[2];

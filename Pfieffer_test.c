@@ -1,12 +1,12 @@
-#include <PfiefferPumpLibrary.h>
 #include <SoftwareSerial.h>
+#include <string.h>
 
 
 #define RS485_TX 11  // SoftwareSerial TX pin
 #define RS485_RX 10  // SoftwareSerial RX pin
 #define RS485_direction 9 //Enable for read and write
 
-const char* PFIEFFER_ADDRESS = ___;
+//const char* PFIEFFER_ADDRESS = ___;
 
 SoftwareSerial RS485Serial(RS485_TX, RS485_RX);
 
@@ -21,12 +21,14 @@ void setup()
 void loop()
 {
     RS485_Master_Transmit();
-    char buf[16] = "9610030902=?112";
-    strncat(buf, 13);
+    char buf[32] = "9610030902=?112";  // Increase buffer size to prevent overflow
+    strncat(buf, "\r", sizeof(buf) - strlen(buf) - 1);  // Append carriage return
     RS485Serial.println(buf);
     RS485_Master_Receive();
-    char *response = get_response(2000);
+    String response = get_response(2000);
+    Serial.print("hh: ");
     Serial.println(response);
+
     /*
     RS485_Master_Transmit();
     RS485Serial.println(*control_request(address, "797", "230"));
@@ -47,16 +49,17 @@ void RS485_Master_Transmit()
     return;
 }
 
-char* get_response(uint8_t time_limit)
+String get_response(uint8_t time_limit)
 {
     unsigned long startTime = millis();
-    char* response = "";
+    String response = "";  // Use String instead of char*
 
-    while (millis() - startTime < time_limit) { // Wait for max 2 seconds
+    while (millis() - startTime < time_limit) { // Wait for max `time_limit` ms
         if (RS485Serial.available()) {
             response = RS485Serial.readStringUntil('\n'); // Read response
             break;
         }
     }
-    return response;
+
+    return response;  // Return String (safe & dynamic)
 }

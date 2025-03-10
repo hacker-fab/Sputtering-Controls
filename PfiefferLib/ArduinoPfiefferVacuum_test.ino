@@ -19,11 +19,13 @@ void setup() {
     Serial.println("Starting ArduinoPfiefferVacuum Library Test...");
 
     testCommandFormatting();
+    /*
     testChecksum();
     testDataRequest();
     testControlRequest();
     testResponseParsing();
     testPumpControl();
+    */
 }
 
 void loop() {

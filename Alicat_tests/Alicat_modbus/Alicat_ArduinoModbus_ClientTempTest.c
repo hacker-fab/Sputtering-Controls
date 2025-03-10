@@ -33,19 +33,14 @@ static int          const MODBUS_DEVICE_HUMIDITY_REGISTER    = 0x0002;
 void setup()
 {
   Serial.begin(9600);
-  // Serial.println("hello");
-  while (!Serial)
-  {
-    Serial.println("hi");
-  }
 
-  //delay(1000);
-  //Serial.println("hewo");
-
+  /*
   pinMode(2, OUTPUT);
   digitalWrite(2, HIGH);
   delay(1);
   digitalWrite(2, LOW);
+  */
+  
 
   RS485.setDelays(MODBUS_PRE_DELAY_BR, MODBUS_POST_DELAY_BR);
 

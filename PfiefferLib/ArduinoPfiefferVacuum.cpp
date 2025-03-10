@@ -1,8 +1,14 @@
+/*
+  ArduinoPfiefferVacuum.cpp - Library for formatting Pfieffer Vacuum pump commands.
+  Created by Shayaan Gandhi, Febrauary 16, 2024.
+*/
+
 #include <ArduinoPfiefferVacuum.h>
-#include <SoftwareSerial.h>
+//#include <SoftwareSerial.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 typedef char *ASCII_char;
 
@@ -144,7 +150,7 @@ ASCII_char ArduinoPfiefferVacuum::control_request(ASCII_char param_num, ASCII_ch
     return pfieffer_command_format("10", param_num, data_len_char, data);
 }
 
-
+/*
 ASCII_char ArduinoPfiefferVacuum::get_response(SoftwareSerial RS485Serial, uint8_t time_limit)
 {
     unsigned long startTime = millis();
@@ -176,7 +182,8 @@ ASCII_char ArduinoPfiefferVacuum::get_response(SoftwareSerial RS485Serial, uint8
 
     return response;  // Caller must free this memory when done
 }
-
+*/
+/*
 
 bool ArduinoPfiefferVacuum::set_max_Vacuum_speed(SoftwareSerial RS485Serial)
 {
@@ -249,8 +256,7 @@ bool ArduinoPfiefferVacuum::vent_pump(SoftwareSerial RS485Serial)
 
     return true;
 }
-
-
+*/
 
 void ArduinoPfiefferVacuum::free_message(ASCII_char message)
 {
@@ -267,12 +273,16 @@ void ArduinoPfiefferVacuum::free_check_sum(ASCII_char check_sum)
 void ArduinoPfiefferVacuum::free_decrypt_response(ASCII_char* response_array) {
     if (!response_array) return;  // Prevent dereferencing NULL
 
-    // Free each dynamically allocated string
-    free(response_array[0]);  // address
-    free(response_array[1]);  // param
-    free(response_array[2]);  // data_len
-    free(response_array[3]);  // data
+
+    // Free each dynamically allocated string if it's not NULL
+    for (int i = 0; i < 4; i++) {
+        if (response_array[i]) {
+            free(response_array[i]);  // Cast to void* before freeing
+            response_array[i] = NULL;  // Prevent dangling pointer issues
+        }
+    }
 
     // Free the array itself
-    free(response_array);
+    free(response_array);  // Cast to void* before freeing
+    response_array = NULL;  // Avoid use-after-free errors
 }
