@@ -14,14 +14,19 @@ void loop() {
     Serial.print("Change set point: "); // Prompt user
     
     while (!Serial.available()); // Wait for user input
+    Serial.println();
     
     String input = Serial.readStringUntil('\n'); // Read input
     input.trim(); // Remove any extra spaces or newline characters
     
     String command = "AS " + input + "\r";
     mySerial.print(command); // Send formatted command over software serial
-    
-    Serial.print("Sent: ");
-    Serial.println(command);
-    Serial.print("\n");
+    int x;
+
+    mySerial.write("a\r");
+    while ((x = mySerial.read()) != '\r' && x != -1) {
+        Serial.write(x);
+    }
+    Serial.println();
+    delay(500);
 }

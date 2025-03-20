@@ -14,11 +14,11 @@ void setup() {
 void loop() {
     mySerial.write("a\r");
     int x;
-    while ((x = mySerial.read()) != '\r') {
+    while ((x = mySerial.read()) != '\r' && x != -1) {
         Serial.write(x);
         
-        // Serial.print("Received from Software Serial: ");
-        // Serial.println(data);
+        //Serial.print("Received from Software Serial: ");
+        //Serial.println(data);
     }
     Serial.write("\r\n");
     delay(500);
