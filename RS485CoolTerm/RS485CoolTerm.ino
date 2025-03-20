@@ -8,19 +8,14 @@ SoftwareSerial mySerial(RX_pin, TX_pin); // RX first, TX second
 void setup() {
     Serial.begin(9600);   // Initialize hardware serial
     mySerial.begin(9600); // Initialize software serial
+    Serial.println("RS485 Receiver Ready");
 }
 
-
 void loop() {
-  //Check address: P[:797]; 2 for Thermal Evaporator
-  mySerial.write("0020030902=?108\r");
-  int x;
-  while ((x = mySerial.read()) != '\r' && x != -1) {
-      Serial.write(x);
-      
-      // Serial.print("Received from Software Serial: ");
-      // Serial.println(data);
-  }
-  Serial.write("\r\n");
-  delay(500);
+    // Check if data is available to read
+    if (mySerial.available()) {
+        char receivedChar = mySerial.read(); // Read one byte
+        Serial.print("Received: ");
+        Serial.println(receivedChar); // Print received data to Serial Monitor
+    }
 }
