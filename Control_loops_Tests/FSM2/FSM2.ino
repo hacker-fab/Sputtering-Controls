@@ -35,7 +35,9 @@ enum QueryState { TURN_ON, SPEED_SET, STANDBY_SET, EVAC, SPUTTER_PRESSURE, GAUGE
 QueryState queryState = TURN_ON;
 unsigned long lastActionTime = 0;
 const unsigned long interval = 10000;
-int turn_on_count = 0;
+const unsigned long sample_interval = 2000;
+int turn_on_try = 0;
+int set_speed_try = 0;
 
 //PID control variables
 //If you want faster change increase the values of the coeffs
@@ -93,60 +95,90 @@ void setup() {
 
 }
 
+int stage = 1;
+
 void loop() {
   unsigned long now = millis();
-  if (now - lastActionTime >= interval) {
-    switch(queryState) {
-      case TURN_ON:
-        // Pump: Activate its serial, send command, then process response.
-        RS485Serial_PUMP.listen();
-        //Serial.println("Sending pump command");
-        RS485Mode_PUMP(WRITE);
-        //Turn on pump
-        RS485Serial_PUMP.write("0011001006111111015");
-        RS485Serial_PUMP.write(endChar);
-        RS485Mode_PUMP(READ);
-        delay(100); // Allow time for response
-        readAndProcess(RS485Serial_PUMP);
-        if (turn_on_count < 15)
-        {
-            queryState = TURN_ON;
-            turn_on_count++;
-        }
-        else
-        {
-            queryState = EVAC
-        }
-        break;
-      case STANDBY_SET:
-        // Pump: Activate its serial, send command, then process response.
-        RS485Serial_PUMP.listen();
-        //Serial.println("Sending pump command");
-        RS485Mode_PUMP(WRITE);
-        //Turn on pump
-        RS485Serial_PUMP.write("0011071703100");
-        RS485Serial_PUMP.write(endChar);
-        RS485Mode_PUMP(READ);
-        delay(100); // Allow time for response
-        readAndProcess(RS485Serial_PUMP);
-        queryState = SPEED_SET;
-        break;
-      case SPEED_SET:
-        // Pump: Activate its serial, send command, then process response.
-        RS485Serial_PUMP.listen();
-        //Serial.println("Sending pump command");
-        RS485Mode_PUMP(WRITE);
-        //Turn on pump
-        RS485Serial_PUMP.write("00110707");
-        RS485Serial_PUMP.write(endChar);
-        RS485Mode_PUMP(READ);
-        delay(100); // Allow time for response
-        readAndProcess(RS485Serial_PUMP);
-        queryState = STANDBY_SET;
-        break;
-      case EVAC:
-        //Set pump speed to set value pressure
-        break;
+  if (stage == 1)
+  {
+    if (now - lastActionTime >= interval) {
+      switch(queryState) {
+        case TURN_ON:
+          // Pump: Activate its serial, send command, then process response.
+          RS485Serial_PUMP.listen();
+          //Serial.println("Sending pump command");
+          RS485Mode_PUMP(WRITE);
+          //Turn on pump
+          RS485Serial_PUMP.write("0011001006111111015");
+          RS485Serial_PUMP.write(endChar);
+          RS485Mode_PUMP(READ);
+          delay(100); // Allow time for response
+          readAndProcess(RS485Serial_PUMP);
+          if (turn_on_try < 5)
+          {
+              queryState = TURN_ON;
+              turn_on_try++;
+          }
+          else
+          {
+              queryState = EVAC
+          }
+          break;
+        case STANDBY_SET:
+          // Pump: Activate its serial, send command, then process response.
+          RS485Serial_PUMP.listen();
+          //Serial.println("Sending pump command");
+          RS485Mode_PUMP(WRITE);
+          //Set STANDBY_SPEED to %100 (Change to make more understandable later)
+          RS485Serial_PUMP.write("0011071703100133");
+          RS485Serial_PUMP.write(endChar);
+          RS485Mode_PUMP(READ);
+          delay(100); // Allow time for response
+          readAndProcess(RS485Serial_PUMP);
+          queryState = SPEED_SET;
+          break;
+        case SPEED_SET:
+          // Pump: Activate its serial, send command, then process response.
+          RS485Serial_PUMP.listen();
+          //Serial.println("Sending pump command");
+          RS485Mode_PUMP(WRITE);
+          //SET SPEED_SET to %25 (Change to make more understandable later)
+          RS485Serial_PUMP.write("0011070703025138");
+          RS485Serial_PUMP.write(endChar);
+          RS485Mode_PUMP(READ);
+          delay(100); // Allow time for response
+          readAndProcess(RS485Serial_PUMP);
+          queryState = EVAC;
+          break;
+        case EVAC:
+          //Set pump speed to Standby Speed
+          // Pump: Activate its serial, send command, then process response.
+          RS485Serial_PUMP.listen();
+          //Serial.println("Sending pump command");
+          RS485Mode_PUMP(WRITE);
+          //Turn on STANDBY SPEED
+          RS485Serial_PUMP.write("0011000206111111016");
+          RS485Serial_PUMP.write(endChar);
+          RS485Mode_PUMP(READ);
+          delay(100); // Allow time for response
+          readAndProcess(RS485Serial_PUMP);
+          delay(2000) //Delay before turning off SET SPEED
+          RS485Mode_PUMP(WRITE);
+          //Turn off SET SPEED
+          RS485Serial_PUMP.write("0011002603000125");
+          RS485Serial_PUMP.write(endChar);
+          RS485Mode_PUMP(READ);
+          delay(100); // Allow time for response
+          readAndProcess(RS485Serial_PUMP);
+          queryState = GAUGE;
+          stage = 2;
+          break;
+      }
+    }
+  }
+  if (stage == 2)
+  {
+    if (now - lastActionTime >= sample_interval) {
       case GAUGE:
         // Gauge: Activate its serial, send command, then process response.
         RS485Serial_GAUGE.listen();
@@ -157,7 +189,8 @@ void loop() {
         RS485Mode_GAUGE(READ);
         delay(100); // Allow time for response
         readAndProcess(RS485Serial_GAUGE);
-        queryState = ALICAT;
+        if (reached_equilibrium()) queryState = ALICAT;
+        else  queryState = ALICAT
         break;
       case ALICAT:
         // Alicat: Activate its serial, send command, then process response.
@@ -167,9 +200,11 @@ void loop() {
         ALICATSerial_MFC.print(command);
         delay(100); // Allow time for response
         readAndProcess(ALICATSerial_MFC);
-        queryState = PUMP;
+        queryState = GAUGE;
         break;
     }
+  }
+  
     //Not yet read a pressure
     if (measuredPressure_frac == 0) return;
     lastActionTime = now;
@@ -217,7 +252,6 @@ void loop() {
     //Uncomment when trying to turn off
     //currSetPoint = 0;
 
-  }
 }
 
 // Reads from the provided SoftwareSerial until no data is available.
@@ -298,4 +332,42 @@ float pressure_conversion(char *unconverted_pressure)
     float pressure = frac_float * pow(10, real_exp);
 
     return pressure;
+}
+
+#define N 25           // Number of samples in the window
+#define Q 0.1f         // Std dev threshold for equilibrium
+
+float pressureWindow[N];  // Circular buffer
+int head = 0;             // Points to next insert position
+int count = 0;            // Number of valid entries
+
+bool reached_equilibrium(float newPressure) {
+  // Insert new pressure into circular buffer
+  pressureWindow[head] = newPressure;
+  //Circle around array
+  head = (head + 1) % N;
+
+  // Wait until buffer fills up
+  if (count < N) {
+    count++;
+    return false;
+  }
+
+  // Compute mean
+  float sum = 0.0f;
+  for (int i = 0; i < N; i++) {
+    sum += pressureWindow[i];
+  }
+  float mean = sum / N;
+
+  // Compute standard deviation
+  float variance = 0.0f;
+  for (int i = 0; i < N; i++) {
+    float diff = pressureWindow[i] - mean;
+    variance += diff * diff;
+  }
+  variance /= N;
+  float stdDev = sqrt(variance);
+
+  return stdDev < Q;
 }
