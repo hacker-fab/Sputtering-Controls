@@ -5,7 +5,7 @@
 #include "DisplayPressure.h"
 #include <Arduino.h>
 
-enum QueryState { TURN_ON, SPEED_SET, STANDBY_SET, EVAC, GAUGE, ALICAT };
+enum QueryState { TURN_ON, SPEED_SET, STANDBY_SET, EVAC, SPUTTER_SPEED, GAUGE, ALICAT };
 QueryState queryState = TURN_ON;
 
 const unsigned long interval = 10000;
@@ -27,6 +27,7 @@ void updateFSM(pressure_measurement desired_pressure) {
       case TURN_ON:
         RS485Serial_PUMP.listen();
         RS485Mode_PUMP(WRITE);
+        //Turn on
         RS485Serial_PUMP.write("0011001006111111015\r");
         RS485Mode_PUMP(READ);
         delay(100);
@@ -42,6 +43,7 @@ void updateFSM(pressure_measurement desired_pressure) {
       case STANDBY_SET:
         RS485Serial_PUMP.listen();
         RS485Mode_PUMP(WRITE);
+        //Set standby speed to 100
         RS485Serial_PUMP.write("0011071703100133\r");
         RS485Mode_PUMP(READ);
         delay(100);
@@ -52,6 +54,7 @@ void updateFSM(pressure_measurement desired_pressure) {
       case SPEED_SET:
         RS485Serial_PUMP.listen();
         RS485Mode_PUMP(WRITE);
+        //Set set speed to 25
         RS485Serial_PUMP.write("0011070703025138\r");
         RS485Mode_PUMP(READ);
         delay(100);
@@ -62,12 +65,14 @@ void updateFSM(pressure_measurement desired_pressure) {
       case EVAC:
         RS485Serial_PUMP.listen();
         RS485Mode_PUMP(WRITE);
+        //Turn on Standby
         RS485Serial_PUMP.write("0011000206111111016\r");
         RS485Mode_PUMP(READ);
         delay(100);
         readAndProcess(RS485Serial_PUMP);
         delay(2000);
         RS485Mode_PUMP(WRITE);
+        //Turn off set speed
         RS485Serial_PUMP.write("0011002603000125\r");
         RS485Mode_PUMP(READ);
         delay(100);
@@ -83,9 +88,26 @@ void updateFSM(pressure_measurement desired_pressure) {
 
   if (stage == 2 && now - lastActionTime >= sample_interval) {
     switch (queryState) {
+      case SPUTTER_SPEED:
+        RS485Serial_PUMP.listen();
+        RS485Mode_PUMP(WRITE);
+        //Turn off standby
+        RS485Serial_PUMP.write("0011000206000000010\r");
+        RS485Mode_PUMP(READ);
+        delay(100);
+        readAndProcess(RS485Serial_PUMP);
+        delay(2000);
+        RS485Mode_PUMP(WRITE);
+        //Turn on set speed
+        RS485Serial_PUMP.write("0011002603111128\r");
+        RS485Mode_PUMP(READ);
+        delay(100);
+        readAndProcess(RS485Serial_PUMP);
+        queryState = GAUGE;
       case GAUGE:
         RS485Serial_GAUGE.listen();
         RS485Mode_GAUGE(WRITE);
+        //Read pressure
         RS485Serial_GAUGE.write("0020074002=?107\r");
         RS485Mode_GAUGE(READ);
         delay(100);
@@ -103,10 +125,8 @@ void updateFSM(pressure_measurement desired_pressure) {
 
       case ALICAT:
         ALICATSerial_MFC.listen();
-        {
-          String command = "AS " + String(currSetPoint) + "\r";
-          ALICATSerial_MFC.print(command);
-        }
+        String command = "AS " + String(currSetPoint) + "\r";
+        ALICATSerial_MFC.print(command);
         delay(100);
         readAndProcess(ALICATSerial_MFC);
         queryState = GAUGE;
