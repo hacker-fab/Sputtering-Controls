@@ -19,6 +19,8 @@ float currSetPoint = 0;
 
 unsigned long lastActionTime = 0;
 
+bool in_evac = true;
+
 void updateFSM(pressure_measurement desired_pressure) {
   unsigned long now = millis();
 
@@ -80,14 +82,6 @@ void updateFSM(pressure_measurement desired_pressure) {
         queryState = GAUGE;
         stage = 2;
         break;
-
-      default: break;
-    }
-    lastActionTime = now;
-  }
-
-  if (stage == 2 && now - lastActionTime >= sample_interval) {
-    switch (queryState) {
       case SPUTTER_SPEED:
         RS485Serial_PUMP.listen();
         RS485Mode_PUMP(WRITE);
@@ -104,6 +98,13 @@ void updateFSM(pressure_measurement desired_pressure) {
         delay(100);
         readAndProcess(RS485Serial_PUMP);
         queryState = GAUGE;
+      default: break;
+    }
+    lastActionTime = now;
+  }
+
+  if (stage == 2 && now - lastActionTime >= sample_interval) {
+    switch (queryState) {
       case GAUGE:
         RS485Serial_GAUGE.listen();
         RS485Mode_GAUGE(WRITE);
@@ -116,9 +117,20 @@ void updateFSM(pressure_measurement desired_pressure) {
         //Display Pressure
         displayPressure(desired_pressure, measured_pressure);
         if (reached_equilibrium(measured_pressure.pressure)) {
-          currSetPoint = calculate_adjustment(desired_pressure, measured_pressure, currSetPoint, sample_interval);
-          queryState = ALICAT;
-        } else {
+          if (evac) 
+          {
+            stage = 1;
+            evac = false;
+            queryState = SPUTTER_SPEED;
+            break;
+          }
+          else{
+            currSetPoint = calculate_adjustment(desired_pressure, measured_pressure, currSetPoint, sample_interval);
+            queryState = ALICAT;
+          }
+          
+        } 
+        else {
           queryState = GAUGE;
         }
         break;
