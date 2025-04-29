@@ -104,6 +104,7 @@ void loop() {
     if (now - lastActionTime >= interval) {
       switch(queryState) {
         case TURN_ON:
+          Serial.println("Pumping");
           // Pump: Activate its serial, send command, then process response.
           RS485Serial_PUMP.listen();
           //Serial.println("Sending pump command");
@@ -121,7 +122,7 @@ void loop() {
           }
           else
           {
-              queryState = EVAC
+              queryState = EVAC;
           }
           break;
         case STANDBY_SET:

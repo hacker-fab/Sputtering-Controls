@@ -4,8 +4,8 @@
 #include <string.h>
 
 
-#define N 25
-#define Q 0.00005f  // = 5e-5 hPa = 0.5 millitorr
+#define N 10
+#define Q 0.1f
 float pressureWindow[N];
 int head = 0;
 int count = 0;
@@ -13,7 +13,7 @@ int count = 0;
 pressure_measurement initializeDesiredPressure() {
 
   pressure_measurement desired_pressure;
-  Serial.print("Desired pressure frac (hPa): ");
+  Serial.print("Desired pressure decimal (hPa): ");
   while (!Serial.available());
   String frac = Serial.readStringUntil('\n');
   frac.trim();
@@ -47,8 +47,20 @@ pressure_measurement pressure_conversion(char *unconverted_pressure) {
   return measured_pressure;
 }
 
-bool reached_equilibrium(float newPressure) {
-  pressureWindow[head] = newPressure;
+bool reached_equilibrium(float newPressure, bool clear, float desired_magnitude) {
+  if (clear)
+  {
+    for (int i = 0; i < N; i++)
+    {
+      pressureWindow[i] = i;
+    }
+    count = 0;
+    return false;
+  }
+  int scale = desired_magnitude * -1;
+  float scaled_pressure = newPressure * pow(10, scale);
+  pressureWindow[head] = scaled_pressure;
+
   head = (head + 1) % N;
   if (count < N) {
     count++;
@@ -65,5 +77,7 @@ bool reached_equilibrium(float newPressure) {
     variance += diff * diff;
   }
   float stdDev = sqrt(variance / N);
+  Serial.print("Current Standard Deivation: ");
+  Serial.println(stdDev);
   return stdDev < Q;
 }

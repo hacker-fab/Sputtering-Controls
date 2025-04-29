@@ -1,16 +1,16 @@
-#include "RS485.h"
+#include "SerialComms.h"
 #include "Pressure.h"
 #include <Arduino.h>
 
-#define SerialDEpin_PUMP 6
-#define SerialREpin_PUMP 7
-#define SerialDEpin_GAUGE 2
-#define SerialREpin_GAUGE 3
+#define SerialDEpin_PUMP 4
+#define SerialREpin_PUMP 5
+#define SerialDEpin_GAUGE 8
+#define SerialREpin_GAUGE 9
 const char endChar = '\r';
 
-SoftwareSerial RS485Serial_PUMP(8, 9);
-SoftwareSerial RS485Serial_GAUGE(4, 5);
-SoftwareSerial ALICATSerial_MFC(13, 12);
+SoftwareSerial RS485Serial_PUMP(6, 7); //RO, DI
+SoftwareSerial RS485Serial_GAUGE(10, 11); //RO, DI
+SoftwareSerial ALICATSerial_MFC(13, 12); //RX, TX
 
 #define READ 0
 #define WRITE 1
@@ -78,6 +78,34 @@ pressure_measurement processSentence(char* msg) {
     char data[7] = {0};
     strncpy(data, msg + 10, 6);
     result = pressure_conversion(data);
+  }
+  else if (paramValue == 717)
+  {
+    char data[7] = {0};
+    strncpy(data, msg + 10, 6);
+    Serial.print("Standby Val: ");
+    Serial.println(data);
+  }
+  else if (paramValue == 707)
+  {
+    char data[7] = {0};
+    strncpy(data, msg + 10, 6);
+    Serial.print("Set Speed Val: ");
+    Serial.println(data);
+  }
+  else if (paramValue == 2)
+  {
+    char data[7] = {0};
+    strncpy(data, msg + 10, 6);
+    Serial.print("Standby Status: ");
+    Serial.println(data);
+  }
+  else if (paramValue == 26)
+  {
+    char data[7] = {0};
+    strncpy(data, msg + 10, 6);
+    Serial.print("Set Speed Status: ");
+    Serial.println(data);
   }
   return result;
 }

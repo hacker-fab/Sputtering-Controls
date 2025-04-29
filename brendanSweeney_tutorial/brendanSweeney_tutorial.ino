@@ -1,11 +1,11 @@
 #include <SoftwareSerial.h>
 
 
-SoftwareSerial RS485Serial(10, 11); // RX, TX
+SoftwareSerial RS485Serial(6, 7); // RX, TX
 
 //RS485 Communication control pins
-#define SerialDEpin 2
-#define SerialREpin 3
+#define SerialDEpin 4
+#define SerialREpin 5
 
 // Values used for RS485 communication control
 #define READ 0
