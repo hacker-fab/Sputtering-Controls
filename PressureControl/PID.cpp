@@ -4,28 +4,43 @@
 
 // -------------------- PID Constants & Globals --------------------
 
-float Ki = 0.05;
 
 const int INTEGRAL_WINDOW = 10;
 float integralBuffer[INTEGRAL_WINDOW] = {0};
+float Ki;
 
 float integralSum = 0;
 float integral = 0;
 int bufferIndex = 0;
 
-float normalized_error = 0;
 float lastError = 0;
+float baseKp;
 bool integral_active = false;
 
 // -------------------- PID Helper Functions --------------------
-
-float proportional_coefficient(float normalized_error) {
-  float baseKp = 0.5;
-  float minKp = 0.05;
-  float maxKp = 1.0;
-
-  float dynamicKp = baseKp * (abs(normalized_error));
-  return constrain(dynamicKp, minKp, maxKp);
+void init_coefficients(pressure_measurement desired_pressure)
+{
+  if (desired_pressure.exp == -3)
+  {
+    baseKp = 1000;
+    Ki = 500;
+  }
+  else if (desired_pressure.exp == -4)
+  {
+    baseKp = 800;
+    Ki = 500;
+  }
+  else if (desired_pressure.exp == -5)
+  {
+    baseKp = 400;
+    Ki = 500;
+  }
+  else
+  {
+    baseKp = 600;
+    Ki = 500;
+  }
+  return;
 }
 
 // -------------------- Debug Function --------------------
@@ -49,22 +64,23 @@ float calculate_adjustment(pressure_measurement desired_pressure, pressure_measu
 
   debug_pressure(desired_pressure, measured_pressure);
 
-  float scale = 1.0 / desired_pressure.pressure; // Prevent div by zero
-  normalized_error = (desired_pressure.pressure - measured_pressure.pressure) * scale;
   float raw_error = desired_pressure.pressure - measured_pressure.pressure;
+  
+
+  float scale = 1.0 / desired_pressure.pressure; // Prevent div by zero
+  float normalized_error = (desired_pressure.pressure - measured_pressure.pressure) * scale;
 
   Serial.print("Normalized Error: ");
   Serial.println(normalized_error);
 
-  if (abs(normalized_error) < 0.01) return currSetPoint; // Close enough
+  if (abs(normalized_error) < 0.01) return currSetPoint; //Within 1%
 
-  float Kp = proportional_coefficient(normalized_error);
-  float proportional = Kp * normalized_error;
+  float Kp = baseKp;  // Use fixed coefficient
+  float proportional = Kp * raw_error;
 
   static int integralFillCount = 0;
 
   if (abs(proportional) < 0.01) {
-    // Enable integral accumulation
     if (!integral_active) {
       Serial.println("Enabling integral mode");
       integral_active = true;
@@ -72,18 +88,17 @@ float calculate_adjustment(pressure_measurement desired_pressure, pressure_measu
       integralSum = 0;
       for (int i = 0; i < INTEGRAL_WINDOW; i++) integralBuffer[i] = 0;
     }
+    Serial.println("Integral Active");
 
-    // Fill integral buffer
     integralSum -= integralBuffer[bufferIndex];
-    integralBuffer[bufferIndex] = normalized_error;
-    integralSum += normalized_error;
+    integralBuffer[bufferIndex] = raw_error;
+    integralSum += raw_error;
 
     bufferIndex = (bufferIndex + 1) % INTEGRAL_WINDOW;
     if (integralFillCount < INTEGRAL_WINDOW) integralFillCount++;
 
     integral = (integralFillCount >= INTEGRAL_WINDOW) ? Ki * integralSum : 0;
   } else {
-    // Disable and clear integral buffer
     if (integral_active) {
       Serial.println("Disabling integral mode and clearing buffer");
       integral_active = false;

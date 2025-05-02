@@ -7,7 +7,7 @@ struct pressure_measurement {
 };
 
 
-pressure_measurement initializeDesiredPressure();
+void waitForPressureInput(pressure_measurement &desired_pressure);
 pressure_measurement pressure_conversion(char* unconverted_pressure);
 bool reached_equilibrium(float newPressure, bool clear, float desired_magnitude);
 

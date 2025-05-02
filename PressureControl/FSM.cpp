@@ -4,9 +4,10 @@
 #include "PID.h"
 #include "DisplayPressure.h"
 #include <Arduino.h>
-#include <ArduinoPfiefferVacuum.h>
+#include "ArduinoPfieffer.h"
 
-extern ArduinoPfiefferVacuum pfieffer;  // Assume global instance exists
+extern ArduinoPfieffer pfieffer;
+extern ArduinoPfieffer pfieffer_gauge;
 
 const unsigned long interval = 5000;
 const unsigned long sample_interval = 2000;
@@ -35,61 +36,92 @@ void increase_sputter_speed() {
   curr_sputter_speed = String(buf);
 }
 
-void send_and_process(ASCII_char command, HardwareSerial& serial) {
-  RS485Serial_PUMP.listen();
+void send_and_process(ASCII_char command, SoftwareSerial& serial, ArduinoPfieffer& device) {
+  serial.listen();
   RS485Mode_PUMP(WRITE);
   serial.print(command);
   RS485Mode_PUMP(READ);
   delay(100);
   readAndProcess(serial);
-  pfieffer.free_message(command);
+  device.free_message(command);
 }
 
 void handleTurnOn() {
-  ASCII_char cmd = pfieffer.control_request("100", "111111");
-  send_and_process(cmd, RS485Serial_PUMP);
+  Serial.println("Turning on");
+  ASCII_char cmd = pfieffer.control_request("010", "111111");
+  //Serial.print("Turn on command sent: ");
+  //Serial.println(cmd);
+  send_and_process(cmd, RS485Serial_PUMP, pfieffer);
   queryState = (++turn_on_try < 1) ? TURN_ON : STANDBY_SET;
 }
 
 void handleStandbySet() {
-  ASCII_char cmd = pfieffer.control_request("717", "0000");
-  send_and_process(cmd, RS485Serial_PUMP);
+  Serial.println("Setting standby mode");
+  ASCII_char cmd = pfieffer.control_request("717", "010000");
+  Serial.print("Standby command sent: ");
+  Serial.println(cmd);
+  send_and_process(cmd, RS485Serial_PUMP, pfieffer);
   queryState = SPEED_SET;
 }
 
 void handleSpeedSet() {
   char data[7];
   sprintf(data, "%06d", (int)(currSetPoint * 100));
+  Serial.println("Setting pump speed");
   ASCII_char cmd = pfieffer.control_request("707", data);
-  send_and_process(cmd, RS485Serial_PUMP);
+  Serial.print("Speed set command sent: ");
+  Serial.println(cmd);
+  send_and_process(cmd, RS485Serial_PUMP, pfieffer);
   queryState = increasing_speed ? GAUGE : EVAC;
   if (increasing_speed) stage = 2;
 }
 
 void handleEvac() {
+  Serial.println("Beginning evacuation");
+
   ASCII_char cmd1 = pfieffer.control_request("002", "111111");
-  send_and_process(cmd1, RS485Serial_PUMP);
+  //Serial.print("Evac ON command sent: ");
+  //Serial.println(cmd1);
+  send_and_process(cmd1, RS485Serial_PUMP, pfieffer);
+
   delay(2000);
+
   ASCII_char cmd2 = pfieffer.control_request("026", "001");
-  send_and_process(cmd2, RS485Serial_PUMP);
+  //Serial.print("Evac SETPOINT command sent: ");
+  //Serial.println(cmd2);
+  send_and_process(cmd2, RS485Serial_PUMP, pfieffer);
+
   queryState = GAUGE;
   stage = 2;
 }
 
 void handleSputterSpeed(pressure_measurement desired_pressure) {
+  Serial.println("Setting sputter speed");
+
   ASCII_char cmd1 = pfieffer.control_request("002", "000000");
-  send_and_process(cmd1, RS485Serial_PUMP);
+  //Serial.print("Sputter OFF command sent: ");
+  //Serial.println(cmd1);
+  send_and_process(cmd1, RS485Serial_PUMP, pfieffer);
+
   delay(2000);
+
   ASCII_char cmd2 = pfieffer.control_request("026", "011");
-  send_and_process(cmd2, RS485Serial_PUMP);
+  //Serial.print("Sputter SETPOINT command sent: ");
+  //Serial.println(cmd2);
+  send_and_process(cmd2, RS485Serial_PUMP, pfieffer);
+
   reached_equilibrium(0.0, true, desired_pressure.exp);
   queryState = GAUGE;
   stage = 2;
 }
 
 void handleAlicat(pressure_measurement desired_pressure) {
-  ALICATSerial_MFC.listen();
+  Serial.println("Setting Alicat setpoint");
   String command = "AS " + String(currSetPoint) + "\r";
+  //Serial.print("Alicat command sent: ");
+  //Serial.println(command);
+
+  ALICATSerial_MFC.listen();
   ALICATSerial_MFC.print(command);
   delay(100);
   readAndProcess(ALICATSerial_MFC);
@@ -99,10 +131,18 @@ void handleAlicat(pressure_measurement desired_pressure) {
 
 void handleGauge(pressure_measurement desired_pressure) {
   RS485Serial_GAUGE.listen();
+  Serial.println("Querying pressure gauge");
+
+  ASCII_char cmd = pfieffer_gauge.data_request("740");
+  //Serial.print("Gauge command sent: ");
+  //Serial.println(cmd);
+
   RS485Mode_GAUGE(WRITE);
-  RS485Serial_GAUGE.write("0020074002=?107\r");
+  RS485Serial_GAUGE.print(cmd);
   RS485Mode_GAUGE(READ);
   delay(100);
+  pfieffer_gauge.free_message(cmd);
+
   pressure_measurement measured_pressure = readAndProcess(RS485Serial_GAUGE);
 
   if (measured_pressure.exp == 0.0 && measured_pressure.frac == 0.0) {
@@ -160,6 +200,3 @@ void updateFSM(pressure_measurement desired_pressure) {
     lastActionTime = now;
   }
 }
-
-
-

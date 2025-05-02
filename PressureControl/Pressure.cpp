@@ -10,24 +10,36 @@ float pressureWindow[N];
 int head = 0;
 int count = 0;
 
-pressure_measurement initializeDesiredPressure() {
+void waitForPressureInput(pressure_measurement &desired_pressure) {
+  Serial.println("WAITING_FOR_PRESSURE");
 
-  pressure_measurement desired_pressure;
-  Serial.print("Desired pressure decimal (hPa): ");
-  while (!Serial.available());
-  String frac = Serial.readStringUntil('\n');
-  frac.trim();
-  desired_pressure.frac = frac.toFloat();
+  String fracStr = "";
+  String expStr = "";
 
-  Serial.print("Desired pressure magnitude (hPa): ");
-  while (!Serial.available());
-  String exp = Serial.readStringUntil('\n');
-  exp.trim();
-  desired_pressure.exp = exp.toInt();
+  // Wait for "PSET,<frac>,<exp>"
+  while (true) {
+    if (Serial.available()) {
+      String line = Serial.readStringUntil('\n');
+      line.trim();
+      if (line.startsWith("PSET,")) {
+        int firstComma = line.indexOf(',');
+        int secondComma = line.indexOf(',', firstComma + 1);
+        if (secondComma != -1) {
+          fracStr = line.substring(firstComma + 1, secondComma);
+          expStr = line.substring(secondComma + 1);
+          break;
+        }
+      }
+    }
+  }
 
+  desired_pressure.frac = fracStr.toFloat();
+  desired_pressure.exp = expStr.toInt();
   desired_pressure.pressure = desired_pressure.frac * pow(10, desired_pressure.exp);
-  return desired_pressure;
+
+  Serial.println("PRESSURE_RECEIVED");
 }
+
 
 pressure_measurement pressure_conversion(char *unconverted_pressure) {
   if (strlen(unconverted_pressure) < 6) return {};
